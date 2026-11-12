@@ -273,6 +273,7 @@
     <a href="https://github.com/toaster127" target="_blank" class="gh-link">@toaster127 ↗</a>
   </header>
 
+  <!-- Setup Screen -->
   <div id="setup-screen">
     <div class="hero-text">
       <h3>Private 2-Person Chat</h3>
@@ -281,7 +282,7 @@
 
     <div class="input-group">
       <label for="name-input">Your Display Name</label>
-      <input type="text" id="name-input" placeholder="e.g. Quantavius McBasketball" maxlength="99">
+      <input type="text" id="name-input" placeholder="Quantavius McBasketball" maxlength="99">
     </div>
 
     <div class="input-group">
@@ -292,9 +293,10 @@
       </div>
     </div>
 
-    <button id="join-btn" class="primary-btn">Enter Chat Room</button>
+    <button type="button" id="join-btn" class="primary-btn">Enter Chat Room</button>
   </div>
 
+  <!-- Chat Screen -->
   <div id="chat-screen">
     <div class="status-bar">
       <span id="connection-status">Connecting...</span>
@@ -334,50 +336,4 @@
     const w1 = words[Math.floor(Math.random() * words.length)];
     const w2 = words[Math.floor(Math.random() * words.length)];
     const num = Math.floor(100 + Math.random() * 900);
-    return `${w1}-${w2}-${num}`;
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    const params = new URLSearchParams(window.location.search);
-    const sharedRoom = params.get("room");
-    roomInput.value = sharedRoom ? sharedRoom : generateRoomCode();
-  });
-
-  generateBtn.onclick = () => {
-    roomInput.value = generateRoomCode();
-  };
-
-  joinBtn.onclick = () => {
-    username = nameInput.value.trim();
-    roomCode = roomInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-
-    if (!username) {
-      nameInput.focus();
-      alert("Please enter your display name!");
-      return;
-    }
-
-    // Check if name is Tyler (case-insensitive check)
-    if (username.toLowerCase() === "tyler") {
-      alert("All Morrand Lineage are permanently banned from this website. Please change your username and try again.");
-      nameInput.focus();
-      return;
-    }
-
-    if (!roomCode) {
-      roomCode = generateRoomCode();
-      roomInput.value = roomCode;
-    }
-
-    const newUrl = `${window.location.pathname}?room=${encodeURIComponent(roomCode)}`;
-    window.history.replaceState({}, "", newUrl);
-
-    setupScreen.style.display = "none";
-    chatScreen.style.display = "flex";
-    msgInput.focus();
-
-    connectRoom();
-  };
-
-  copyLinkBtn.onclick = () => {
-    if (navigator.clipboard) {
+    return `${w1}-${
