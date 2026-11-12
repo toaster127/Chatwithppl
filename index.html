@@ -4,152 +4,58 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DuoChat | By @toaster127</title>
-  <style>
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { margin: 0; background: #0d1117; color: #c9d1d9; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    .container { width: 100%; max-width: 420px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; display: flex; flex-direction: column; height: 85vh; box-shadow: 0 8px 24px rgba(0,0,0,0.6); overflow: hidden; }
-    
-    header { background: #21262d; padding: 15px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
-    header h2 { margin: 0; font-size: 1rem; color: #f0f6fc; }
-    .gh-link { color: #58a6ff; text-decoration: none; font-size: 0.8rem; }
-    .gh-link:hover { text-decoration: underline; }
-
-    /* Setup Screen */
-    #setup-screen { padding: 25px; display: flex; flex-direction: column; gap: 15px; justify-content: center; flex: 1; text-align: center; }
-    input { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; font-size: 0.95rem; }
-    input:focus { outline: none; border-color: #58a6ff; }
-    button { padding: 12px; border: none; border-radius: 6px; background: #238636; color: white; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
-    button:hover { background: #2ea043; }
-
-    /* Chat Screen */
-    #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
-    #messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-    .msg { background: #21262d; padding: 8px 12px; border-radius: 8px; max-width: 80%; word-break: break-word; font-size: 0.9rem; border: 1px solid #30363d; }
-    .msg.mine { background: #1f6feb; align-self: flex-end; border-color: #388bfd; }
-    .sender { font-size: 0.7rem; color: #8b949e; display: block; margin-bottom: 3px; }
-    .msg.mine .sender { color: #d0e2ff; text-align: right; }
-
-    /* Input Bar */
-    #chat-form { display: flex; padding: 12px; background: #21262d; border-top: 1px solid #30363d; gap: 8px; }
-    #chat-form input { flex: 1; }
-    #chat-form button { padding: 0 16px; }
-    
-    .status-bar { font-size: 0.75rem; color: #8b949e; text-align: center; padding: 4px; background: #0d1117; border-bottom: 1px solid #30363d; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="container">
   <header>
-    <div>
+    <div class="brand">
+      <div class="logo-dot"></div>
       <h2>DuoChat</h2>
-      <a href="https://github.com/toaster127" target="_blank" class="gh-link">@toaster127</a>
     </div>
+    <a href="https://github.com/toaster127" target="_blank" class="gh-link">@toaster127 ↗</a>
   </header>
 
-  <!-- Setup: Name & Room -->
+  <!-- Setup Screen -->
   <div id="setup-screen">
-    <h3 style="margin:0; color: #f0f6fc;">Start a Quick Chat</h3>
-    <p style="font-size: 0.85rem; color: #8b949e; margin: 0;">No passwords or signups needed. Pick a name and a shared room code.</p>
-    <input type="text" id="name-input" placeholder="Your Name" maxlength="15">
-    <input type="text" id="room-input" placeholder="Secret Room Code (e.g. coffee123)" value="duochat-room-1">
-    <button id="join-btn">Join Chat</button>
+    <div class="hero-text">
+      <h3>Private 2-Person Chat</h3>
+      <p>No signups. Generate a room, copy the invite link, and start texting.</p>
+    </div>
+
+    <div class="input-group">
+      <label for="name-input">Your Display Name</label>
+      <input type="text" id="name-input" placeholder="e.g. Tyler" maxlength="16">
+    </div>
+
+    <div class="input-group">
+      <label for="room-input">Secret Room Code</label>
+      <div class="room-row">
+        <input type="text" id="room-input" placeholder="Enter or generate code">
+        <button type="button" id="generate-btn" class="icon-btn" title="Generate Random Code">🎲</button>
+      </div>
+    </div>
+
+    <button id="join-btn" class="primary-btn">Enter Chat Room</button>
   </div>
 
-  <!-- Chat Room Screen -->
+  <!-- Chat Screen -->
   <div id="chat-screen">
-    <div class="status-bar" id="connection-status">Connecting to room...</div>
+    <div class="status-bar">
+      <span id="connection-status">Connecting...</span>
+      <button type="button" id="copy-link-btn" class="copy-btn">Copy Invite Link</button>
+    </div>
+
     <div id="messages"></div>
+
     <form id="chat-form">
-      <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off" required>
-      <button type="submit">Send</button>
+      <input type="text" id="msg-input" placeholder="Write a message..." autocomplete="off" required>
+      <button type="submit" class="send-btn">Send</button>
     </form>
   </div>
 </div>
 
-<script>
-  let ws;
-  let username = "";
-  let roomCode = "";
-
-  const setupScreen = document.getElementById("setup-screen");
-  const chatScreen = document.getElementById("chat-screen");
-  const messagesDiv = document.getElementById("messages");
-  const statusEl = document.getElementById("connection-status");
-
-  document.getElementById("join-btn").addEventListener("click", () => {
-    username = document.getElementById("name-input").value.trim();
-    roomCode = document.getElementById("room-input").value.trim().toLowerCase();
-
-    if (!username || !roomCode) {
-      alert("Please enter both your name and a room code.");
-      return;
-    }
-
-    setupScreen.style.display = "none";
-    chatScreen.style.display = "flex";
-
-    connectWebSocket();
-  });
-
-  function connectWebSocket() {
-    // Using a public free WebSocket JSON relay service
-    ws = new WebSocket('wss://socketsbay.com/wss/v2/1/demo/');
-
-    ws.onopen = () => {
-      statusEl.textContent = `Connected to room: ${roomCode}`;
-      // Send a join notification
-      ws.send(JSON.stringify({ room: roomCode, sender: "System", text: `${username} joined the chat.` }));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.room === roomCode) {
-          appendMessage(data.sender, data.text, data.sender === username);
-        }
-      } catch (e) {
-        // Fallback if raw text comes through
-      }
-    };
-
-    ws.onclose = () => {
-      statusEl.textContent = "Disconnected. Refresh to reconnect.";
-      statusEl.style.color = "#f85149";
-    };
-  }
-
-  document.getElementById("chat-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const input = document.getElementById("msg-input");
-    const text = input.value.trim();
-    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
-
-    const payload = JSON.stringify({ room: roomCode, sender: username, text: text });
-    ws.send(payload);
-
-    // Locally show your own message instantly
-    appendMessage(username, text, true);
-    input.value = "";
-  });
-
-  function appendMessage(sender, text, isMine) {
-    const msgEl = document.createElement("div");
-    msgEl.className = `msg ${isMine ? "mine" : ""}`;
-
-    const senderEl = document.createElement("span");
-    senderEl.className = "sender";
-    senderEl.textContent = sender;
-
-    const textEl = document.createElement("div");
-    textEl.textContent = text;
-
-    msgEl.appendChild(senderEl);
-    msgEl.appendChild(textEl);
-    messagesDiv.appendChild(msgEl);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  }
-</script>
-
+<script src="app.js"></script>
 </body>
 </html>
