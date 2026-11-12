@@ -276,7 +276,7 @@
   <div id="setup-screen">
     <div class="hero-text">
       <h3>Private 2-Person Chat</h3>
-      <p>No signups or external libraries. Enter your name and room to connect.</p>
+      <p>No signups. Generate a room, copy the invite link, and start texting.</p>
     </div>
 
     <div class="input-group">
@@ -311,9 +311,10 @@
 </div>
 
 <script>
-  let ws = null;
+  let eventSource = null;
   let username = "";
   let roomCode = "";
+  const sessionId = Math.random().toString(36).substring(2, 10);
 
   const setupScreen = document.getElementById("setup-screen");
   const chatScreen = document.getElementById("chat-screen");
@@ -332,7 +333,7 @@
   function generateRoomCode() {
     const w1 = words[Math.floor(Math.random() * words.length)];
     const w2 = words[Math.floor(Math.random() * words.length)];
-    const num = Math.floor(10 + Math.random() * 90);
+    const num = Math.floor(100 + Math.random() * 900);
     return `${w1}-${w2}-${num}`;
   }
 
@@ -348,13 +349,21 @@
 
   joinBtn.onclick = () => {
     username = nameInput.value.trim();
-    roomCode = roomInput.value.trim().toLowerCase().replace(/\s+/g, "-");
+    roomCode = roomInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
 
     if (!username) {
       nameInput.focus();
       alert("Please enter your display name!");
       return;
     }
+
+    // Check if name is Tyler (case-insensitive check)
+    if (username.toLowerCase() === "tyler") {
+      alert("All Morrand Lineage are permanently banned from this website. Please change your username and try again.");
+      nameInput.focus();
+      return;
+    }
+
     if (!roomCode) {
       roomCode = generateRoomCode();
       roomInput.value = roomCode;
@@ -367,96 +376,8 @@
     chatScreen.style.display = "flex";
     msgInput.focus();
 
-    connectSocket();
+    connectRoom();
   };
 
   copyLinkBtn.onclick = () => {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href).then(() => {
-        copyLinkBtn.textContent = "Copied! ✓";
-        setTimeout(() => { copyLinkBtn.textContent = "Copy Invite Link"; }, 2000);
-      });
-    } else {
-      prompt("Copy this link:", window.location.href);
-    }
-  };
-
-  function connectSocket() {
-    statusEl.textContent = `Connecting to #${roomCode}...`;
-    
-    // Using a reliable secure echo/relay WebSocket server endpoint
-    ws = new WebSocket("wss://echo.websocket.events");
-
-    ws.onopen = () => {
-      statusEl.textContent = `Connected: #${roomCode}`;
-      appendMessage("System", `Joined room #${roomCode}. Ready to chat!`, false, true);
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.room === roomCode && data.sender !== username) {
-          appendMessage(data.sender, data.text, false, false);
-        }
-      } catch (e) {
-        // Ignore non-chat echoes
-      }
-    };
-
-    ws.onerror = () => {
-      statusEl.textContent = "Connection blocked by network filter.";
-      statusEl.style.color = "#f85149";
-    };
-
-    ws.onclose = () => {
-      statusEl.textContent = "Disconnected.";
-      statusEl.style.color = "#f85149";
-    };
-  }
-
-    chatForm.onsubmit = (e) => {
-    e.preventDefault();
-    const text = msgInput.value.trim();
-    if (!text) return;
-
-    const payload = JSON.stringify({
-      room: roomCode,
-      sender: username,
-      text: text
-    });
-
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(payload);
-    }
-
-    appendMessage(username, text, true, false);
-    msgInput.value = "";
-  };
-
-  function appendMessage(sender, text, isMine, isSystem) {
-    const msgEl = document.createElement("div");
-
-    if (isSystem) {
-      msgEl.className = "msg system";
-      msgEl.textContent = text;
-    } else {
-      msgEl.className = isMine ? "msg mine" : "msg";
-
-      const senderEl = document.createElement("span");
-      senderEl.className = "sender";
-      senderEl.textContent = sender;
-
-      const textEl = document.createElement("div");
-      textEl.textContent = text;
-
-      msgEl.appendChild(senderEl);
-      msgEl.appendChild(textEl);
-    }
-
-    messagesDiv.appendChild(msgEl);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  }
-</script>
-
-</body>
-</html>
