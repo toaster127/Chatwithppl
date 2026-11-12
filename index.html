@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DuoChat | By @toaster127</title>
+  <!-- PeerJS Library for reliable direct browser-to-browser connection -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -142,6 +144,7 @@
       background-color: #2d183b;
       font-size: 1.25rem;
       cursor: pointer;
+      color: white;
     }
 
     .primary-btn {
@@ -221,4 +224,202 @@
       background-color: rgba(255, 255, 255, 0.08);
       border: none;
       border-radius: 20px;
-      color: #cbd5
+      color: #cbd5e1;
+      font-size: 0.75rem;
+      padding: 4px 12px;
+    }
+
+    .sender {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #00f5d4;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .msg.mine .sender {
+      display: none;
+    }
+
+    #chat-form {
+      display: flex;
+      padding: 14px;
+      background-color: #110f24;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 10px;
+    }
+
+    #chat-form input {
+      flex: 1;
+      border-radius: 24px;
+      padding: 12px 18px;
+    }
+
+    .send-btn {
+      padding: 0 22px;
+      border-radius: 24px;
+      border: none;
+      background: linear-gradient(90deg, #00f5d4, #38bdf8);
+      color: #090c10;
+      font-weight: 800;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <h2>DuoChat</h2>
+    </div>
+    <a href="https://github.com/toaster127" target="_blank" class="gh-link">@toaster127 ↗</a>
+  </header>
+
+  <div id="setup-screen">
+    <div class="hero-text">
+      <h3>Private 2-Person Chat</h3>
+      <p>No signups. Generate a room, copy the invite link, and text directly.</p>
+    </div>
+
+    <div class="input-group">
+      <label for="name-input">Your Display Name</label>
+      <input type="text" id="name-input" placeholder="e.g. Tyler" maxlength="16">
+    </div>
+
+    <div class="input-group">
+      <label for="room-input">Secret Room Code / ID</label>
+      <div class="room-row">
+        <input type="text" id="room-input" placeholder="Enter or generate code">
+        <button type="button" id="generate-btn" class="icon-btn">🎲</button>
+      </div>
+    </div>
+
+    <button id="join-btn" class="primary-btn">Start / Join Room</button>
+  </div>
+
+  <div id="chat-screen">
+    <div class="status-bar">
+      <span id="connection-status">Connecting peer...</span>
+      <button type="button" id="copy-link-btn" class="copy-btn">Copy Invite Link</button>
+    </div>
+
+    <div id="messages"></div>
+
+    <form id="chat-form">
+      <input type="text" id="msg-input" placeholder="Write a message..." autocomplete="off" required>
+      <button type="submit" class="send-btn">Send</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  let peer = null;
+  let conn = null;
+  let username = "";
+  let roomCode = "";
+
+  const setupScreen = document.getElementById("setup-screen");
+  const chatScreen = document.getElementById("chat-screen");
+  const nameInput = document.getElementById("name-input");
+  const roomInput = document.getElementById("room-input");
+  const generateBtn = document.getElementById("generate-btn");
+  const joinBtn = document.getElementById("join-btn");
+  const copyLinkBtn = document.getElementById("copy-link-btn");
+  const messagesDiv = document.getElementById("messages");
+  const statusEl = document.getElementById("connection-status");
+  const chatForm = document.getElementById("chat-form");
+  const msgInput = document.getElementById("msg-input");
+
+  const words = ["tiger", "pixel", "comet", "neon", "orbit", "spark", "frost", "lunar", "echo", "nova"];
+
+  function generateRoomCode() {
+    const w1 = words[Math.floor(Math.random() * words.length)];
+    const w2 = words[Math.floor(Math.random() * words.length)];
+    const num = Math.floor(100 + Math.random() * 900);
+    return `${w1}-${w2}-${num}`;
+  }
+
+  // Check URL parameters on load
+  window.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedRoom = params.get("room");
+    if (sharedRoom) {
+      roomInput.value = sharedRoom;
+    } else {
+      roomInput.value = generateRoomCode();
+    }
+  });
+
+  generateBtn.addEventListener("click", () => {
+    roomInput.value = generateRoomCode();
+  });
+
+  joinBtn.addEventListener("click", () => {
+    username = nameInput.value.trim();
+    roomCode = roomInput.value.trim().toLowerCase();
+
+    if (!username) {
+      nameInput.focus();
+      alert("Please enter your display name!");
+      return;
+    }
+    if (!roomCode) {
+      roomCode = generateRoomCode();
+      roomInput.value = roomCode;
+    }
+
+    // Update URL so sharing works seamlessly
+    const newUrl = `${window.location.pathname}?room=${encodeURIComponent(roomCode)}`;
+    window.history.replaceState({}, "", newUrl);
+
+    setupScreen.style.display = "none";
+    chatScreen.style.display = "flex";
+    msgInput.focus();
+
+    initPeerConnection();
+  });
+
+  copyLinkBtn.addEventListener("click", () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        copyLinkBtn.textContent = "Copied! ✓";
+        setTimeout(() => { copyLinkBtn.textContent = "Copy Invite Link"; }, 2000);
+      });
+    } else {
+      prompt("Copy this link:", window.location.href);
+    }
+  });
+
+  function initPeerGeneratorId(idToUse) {
+    // We append 'toasterchat-' prefix so peer IDs are unique globally
+    const fullPeerId = `toasterchat-${idToUse}`;
+    
+    peer = new Peer(fullPeerId);
+
+    peer.on('open', (id) => {
+      statusEl.textContent = `Waiting for peer in #${roomCode}...`;
+      appendMessage("System", `Room created! Send the invite link to your friend.`, false, true);
+    });
+
+    peer.on('connection', (incomingConn) => {
+      conn = incomingConn;
+      setupConnection();
+    });
+
+    peer.on('error', (err) => {
+      if (err.type === 'unavailable-id') {
+        // If the ID already exists, that means the first person is already hosting. Let's connect as a client instead!
+        peer.destroy();
+        connectAsClient(fullPeerId);
+      } else {
+        statusEl.textContent = "Connection error. Refresh to retry.";
+        statusEl.style.color = "#f85149";
+      }
+    });
+  }
+
+  function connectAsClient(fullPeerId) {
+    statusEl.textContent = "Connecting to host...";
+    peer = new Peer(); // random ID
